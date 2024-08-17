@@ -3,7 +3,7 @@
 
 @import 'settings';
 @import 'foundation';
-@import 'motion-ui';
+// @import 'motion-ui';
 
 @include foundation-global-styles;
 //@include foundation-grid;
@@ -50,8 +50,8 @@
 
 // @include foundation-prototype-classes;
 
-@include motion-ui-transitions;
-@include motion-ui-animations;
+// @include motion-ui-transitions;
+// @include motion-ui-animations;
 
 /*
   My custom styles:
@@ -79,5 +79,5 @@
 @import "components/links";
 
 // Templates
-@import "templates/front";
-@import "templates/kitchen-sink";
+// @import "templates/front";
+// @import "templates/kitchen-sink";

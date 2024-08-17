@@ -16,7 +16,8 @@
 
 /** === Content Width === */
 .wp-block {
-	width: calc(100vw - (2 * 10));
+	// width: calc(100vw - (2 * 10));
+	width: calc(100vw - 20vw);
 	@each $breakpoint, $size in $grid-margin-gutters {
 
 		@include breakpoint($breakpoint) {

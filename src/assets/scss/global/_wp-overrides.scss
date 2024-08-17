@@ -32,25 +32,28 @@ p.wp-caption-text{
 .gallery {
   @include xy-grid;
   @include xy-gutters($negative: true);
+
   @for $i from 1 through 9 {
     &.gallery-columns-#{$i} {
-      @include xy-grid-layout(2, '.gallery-item', true);
+      @include xy-grid-layout($i, '.gallery-item', $gutters: 2);  // Simplified
     }
-    @include breakpoint(medium){
+    @include breakpoint(medium) {
       &.gallery-columns-#{$i} {
-        @include xy-grid-layout(4, '.gallery-item', true, (small: 30px));
+        @include xy-grid-layout($i, '.gallery-item', $gutters: 4);
       }
     }
     @include breakpoint(large) {
       &.gallery-columns-#{$i} {
-        @include xy-grid-layout($i, '.gallery-item', true, (small: 30px));
+        @include xy-grid-layout($i, '.gallery-item', $gutters: $i);
       }
     }
   }
+
   .gallery-icon > a {
     @include thumbnail;
     @include thumbnail-link;
   }
+  
   .gallery-icon > img {
     @include thumbnail;
   }

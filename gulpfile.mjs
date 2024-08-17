@@ -1,10 +1,15 @@
 'use strict';
 
-import plugins       from 'gulp-load-plugins';
-import yargs         from 'yargs';
+// import plugins       from 'gulp-load-plugins';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const plugins = require('gulp-load-plugins')();
+import yargs         from 'yargs/yargs';
+import { hideBin } from 'yargs/helpers';
 import browser       from 'browser-sync';
 import gulp          from 'gulp';
-import rimraf        from 'rimraf';
+// import rimraf        from 'rimraf';
+const rimraf = require('rimraf');
 import yaml          from 'js-yaml';
 import fs            from 'fs';
 import dateFormat    from 'dateformat';
@@ -13,15 +18,32 @@ import webpack2      from 'webpack';
 import named         from 'vinyl-named';
 import log           from 'fancy-log';
 import colors        from 'ansi-colors';
+const gulpSass = require('gulp-sass')(require('sass'));
+import gulpAutoprefixer from 'gulp-autoprefixer';
+import gulpRev from 'gulp-rev';
+import imagemin from 'gulp-imagemin';
+import imageminMozjpeg from 'imagemin-mozjpeg';
+import imageminPngquant from 'imagemin-pngquant';
+import imageminGifsicle from 'imagemin-gifsicle';
+import imageminSvgo from 'imagemin-svgo';
+import zip from 'gulp-zip';
 
 // Load all Gulp plugins into one variable
-const $ = plugins();
+// const $ = plugins();
+const $ = plugins;
 
 // Check for --production flag
-const PRODUCTION = !!(yargs.argv.production);
+// const PRODUCTION = !!(yargs.argv.production);
+const argv = yargs(hideBin(process.argv)).argv;
+
+// Check for --production flag
+const PRODUCTION = !!argv.production;
 
 // Check for --development flag unminified with sourcemaps
-const DEV = !!(yargs.argv.dev);
+const DEV = !!argv.dev;
+
+// Check for --development flag unminified with sourcemaps
+// const DEV = !!(yargs.argv.dev);
 
 // Load settings from settings.yml
 const { BROWSERSYNC, COMPATIBILITY, REVISIONING, PATHS } = loadConfig();
@@ -63,8 +85,12 @@ function loadConfig() {
 
 // Delete the "dist" folder
 // This happens every time a build starts
+// function clean(done) {
+//   rimraf(PATHS.dist, done);
+// }
+
 function clean(done) {
-  rimraf(PATHS.dist, done);
+  fs.rm(PATHS.dist, { recursive: true, force: true }, done);
 }
 
 // Copy files out of the assets folder
@@ -76,24 +102,53 @@ function copy() {
 
 // Compile Sass into CSS
 // In production, the CSS is compressed
+// function sass() {
+//   return gulp.src(['src/assets/scss/app.scss','src/assets/scss/editor.scss'])
+//     .pipe($.sourcemaps.init())
+//     .pipe($.sass({
+//       includePaths: PATHS.sass
+//     })
+//       .on('error', $.sass.logError))
+//     .pipe($.autoprefixer({
+//       browsers: COMPATIBILITY
+//     }))
+
+//     .pipe($.if(PRODUCTION, $.cleanCss({ compatibility: 'ie9' })))
+//     .pipe($.if(!PRODUCTION, $.sourcemaps.write()))
+//     .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, $.rev()))
+//     .pipe(gulp.dest(PATHS.dist + '/assets/css'))
+//     .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, $.rev.manifest()))
+//     .pipe(gulp.dest(PATHS.dist + '/assets/css'))
+//     .pipe(browser.reload({ stream: true }));
+// }
 function sass() {
   return gulp.src(['src/assets/scss/app.scss','src/assets/scss/editor.scss'])
     .pipe($.sourcemaps.init())
-    .pipe($.sass({
+    .pipe(gulpSass({
       includePaths: PATHS.sass
-    })
-      .on('error', $.sass.logError))
-    .pipe($.autoprefixer({
-      browsers: COMPATIBILITY
+    }).on('error', gulpSass.logError))
+    .pipe(gulpAutoprefixer({
+      overrideBrowserslist: COMPATIBILITY
     }))
-
     .pipe($.if(PRODUCTION, $.cleanCss({ compatibility: 'ie9' })))
     .pipe($.if(!PRODUCTION, $.sourcemaps.write()))
-    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, $.rev()))
+    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, gulpRev()))
     .pipe(gulp.dest(PATHS.dist + '/assets/css'))
-    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, $.rev.manifest()))
+    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, gulpRev.manifest()))
     .pipe(gulp.dest(PATHS.dist + '/assets/css'))
     .pipe(browser.reload({ stream: true }));
+}
+
+// Update the webpack build task
+function webpackBuild() {
+  return gulp.src(PATHS.entries)
+    .pipe(named())
+    .pipe(webpackStream(webpack.config, webpack2))
+    .pipe($.if(PRODUCTION, $.uglify().on('error', e => { console.log(e); })))
+    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, gulpRev()))
+    .pipe(gulp.dest(PATHS.dist + '/assets/js'))
+    .pipe($.if(REVISIONING && PRODUCTION || REVISIONING && DEV, gulpRev.manifest()))
+    .pipe(gulp.dest(PATHS.dist + '/assets/js'));
 }
 
 // Combine JavaScript into one file
@@ -135,6 +190,8 @@ const webpack = {
       .pipe(gulp.dest(PATHS.dist + '/assets/js'));
   },
 
+  
+
   watch() {
     const watchConfig = Object.assign(webpack.config, {
       watch: true,
@@ -154,12 +211,13 @@ const webpack = {
   },
 };
 
-gulp.task('webpack:build', webpack.build);
+// gulp.task('webpack:build', webpack.build);
+gulp.task('webpack:build', webpackBuild);
 gulp.task('webpack:watch', webpack.watch);
 
 // Copy images to the "dist" folder
 // In production, the images are compressed
-function images() {
+function images_old() {
   return gulp.src('src/assets/images/**/*')
     .pipe($.if(PRODUCTION, $.imagemin([
       $.imagemin.jpegtran({
@@ -181,6 +239,32 @@ function images() {
     .pipe(gulp.dest(PATHS.dist + '/assets/images'));
 }
 
+function images() {
+  return gulp.src('src/assets/images/**/*')
+    .pipe($.if(PRODUCTION, imagemin([
+      imageminMozjpeg({ progressive: true }),
+      imageminPngquant({ quality: [0.6, 0.8] }),
+      imageminGifsicle({ interlaced: true }),
+      imageminSvgo({
+        plugins: [
+          { name: 'removeViewBox', active: false },
+          // { name: 'cleanupIDs', active: false }
+        ]
+      })
+    ])))
+    .pipe(gulp.dest(PATHS.dist + '/assets/images'));
+}
+
+// Create a .zip archive of the theme
+// function archive() {
+//   var time = dateFormat(new Date(), "yyyy-mm-dd_HH-MM");
+//   var pkg = JSON.parse(fs.readFileSync('./package.json'));
+//   var title = pkg.name + '_' + time + '.zip';
+
+//   return gulp.src(PATHS.package)
+//     .pipe($.zip(title))
+//     .pipe(gulp.dest('packaged'));
+// }
 // Create a .zip archive of the theme
 function archive() {
   var time = dateFormat(new Date(), "yyyy-mm-dd_HH-MM");
@@ -188,7 +272,7 @@ function archive() {
   var title = pkg.name + '_' + time + '.zip';
 
   return gulp.src(PATHS.package)
-    .pipe($.zip(title))
+    .pipe(zip(title))
     .pipe(gulp.dest('packaged'));
 }
 
@@ -257,3 +341,13 @@ gulp.task('default',
 // Package task
 gulp.task('package',
   gulp.series('build', archive));
+
+gulp.task('images', images);  
+
+// function archive() {
+//   return gulp.src('dist/**/*')
+//     .pipe(zip('archive.zip'))
+//     .pipe(gulp.dest('dist'));
+// }
+
+gulp.task('archive', archive);
